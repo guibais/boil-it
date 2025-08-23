@@ -118,10 +118,10 @@ export class BoilIt {
       const module = this.config.modules[moduleName];
       if (!module?.refs) continue;
 
-      const remote = module.origin || this.config.default?.origin || "origin";
+      const originUrl = module.origin || this.config.default?.origin || this.repoUrl;
 
       for (const ref of module.refs) {
-        const isValidRef = await this.checkRefExists(repoDir, ref, remote);
+        const isValidRef = await this.checkRefExists(repoDir, ref, originUrl);
         if (!isValidRef) {
           invalidRefs.push({ module: moduleName, ref });
         }
@@ -140,11 +140,12 @@ export class BoilIt {
     spinner.succeed("All module references validated");
   }
 
-  private async checkRefExists(repoDir: string, ref: string, remote: string = "origin"): Promise<boolean> {
+  private async checkRefExists(repoDir: string, ref: string, originUrl: string): Promise<boolean> {
     const execa = (await import("execa")).default;
     
     try {
-      await execa("git", ["-C", repoDir, "rev-parse", "--verify", `${remote}/${ref}`], { stdio: "pipe" });
+      // Fast check using ls-remote against the provided URL
+      await execa("git", ["ls-remote", "--exit-code", originUrl, ref], { stdio: "pipe" });
       return true;
     } catch {
       try {
@@ -373,11 +374,12 @@ export class BoilIt {
 
     await execa("git", ["-C", repoDir, "fetch", "--all"], { stdio: "pipe" });
 
-    const remote = module.origin || this.config?.default?.origin || "origin";
+    const originUrl = module.origin || this.config?.default?.origin || this.repoUrl;
 
     for (const ref of module.refs) {
       try {
-        await execa("git", ["-C", repoDir, "fetch", remote, ref], {
+        // Fetch the ref directly from the origin URL; tip will be in FETCH_HEAD
+        await execa("git", ["-C", repoDir, "fetch", originUrl, ref], {
           stdio: "pipe",
         });
         const { stdout: current } = await execa(
@@ -387,7 +389,7 @@ export class BoilIt {
         );
         const { stdout: base } = await execa(
           "git",
-          ["-C", repoDir, "merge-base", current.trim(), `${remote}/${ref}`],
+          ["-C", repoDir, "merge-base", current.trim(), `FETCH_HEAD`],
           { stdio: "pipe" }
         );
         const { stdout: revs } = await execa(
@@ -398,7 +400,7 @@ export class BoilIt {
             "rev-list",
             "--no-merges",
             "--reverse",
-            `${base}..${remote}/${ref}`,
+            `${base}..FETCH_HEAD`,
           ],
           { stdio: "pipe" }
         );
@@ -410,7 +412,9 @@ export class BoilIt {
           continue;
         }
       } catch {}
-      await this.cherryPickWithConflictHandling(repoDir, `${remote}/${ref}`);
+      // Fallback to applying the fetched tip directly
+      await execa("git", ["-C", repoDir, "fetch", originUrl, ref], { stdio: "pipe" });
+      await this.cherryPickWithConflictHandling(repoDir, `FETCH_HEAD`);
     }
   }
 

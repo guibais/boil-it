@@ -49,7 +49,7 @@ name = "example-repo"
 description = "Example repository with modules"
 
 [default]
-origin = "origin" # global default remote name; modules can override with their own 'origin'
+origin = "https://github.com/your-org/your-repo.git" # global default Git remote URL; modules can override with their own 'origin'
 
 [modules.auth]
 description = "Authentication module"
@@ -73,7 +73,7 @@ refs = ["user2-branch"]
 
 [modules.external]
 description = "Module coming from an alternate remote"
-origin = "upstream"        # per-module remote override
+origin = "git@github.com:another/repo.git"  # per-module Git remote URL override
 refs = ["external-feature"]
 ```
 
@@ -84,14 +84,14 @@ refs = ["external-feature"]
 - `dependencies`: other modules that must be applied first
 - `path`: optional destination path where the module will be placed
 - `files`: file glob(s) to include (e.g., `modules/*.md`)
-- `origin`: optional remote name for this module (overrides `[default].origin`)
+- `origin`: optional Git remote URL for this module (overrides `[default].origin`). If omitted, BoilIt uses `[default].origin` when present, otherwise the source repo URL passed to the CLI.
 
 ## How it works
 
 1. Clone the provided repository and read `boilit.toml`.
 2. Resolve module dependencies automatically and determine the apply order.
 3. For each module, run a pipeline based on a `refs` array (branches, tags, or commits):
-   - Fetch and resolve the chosen remote for each module (`[default].origin` or the module's `origin`).
+   - Fetch and resolve the chosen remote URL for each module (`[default].origin` or the module's `origin`; falls back to the CLI source repo URL).
    - Expand each `ref` into one or more underlying revisions to apply, then apply them in order.
    - If needed, fall back to `<remote>/<ref>` when appropriate.
 4. If a conflict occurs while applying a ref, BoilIt guides you to resolve it manually and choose to continue or cancel.
