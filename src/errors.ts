@@ -4,3 +4,7 @@ export class OperationCancelledError extends Error {
     this.name = 'OperationCancelledError';
   }
 }
+
+export function isOperationCancelled(e: unknown): e is OperationCancelledError {
+  return e instanceof OperationCancelledError || (!!e && (e as any).name === 'OperationCancelledError');
+}

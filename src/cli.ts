@@ -3,32 +3,48 @@ import { Command } from 'commander';
 import { BoilIt } from './boilit';
 import { version } from '../package.json';
 import chalk from 'chalk';
-import { OperationCancelledError } from './errors';
+import { OperationCancelledError, isOperationCancelled } from './errors';
 
-const program = new Command();
+type UseOptions = { path?: string; ref?: string };
+type Deps = { createBoilIt?: () => BoilIt };
 
-program
-  .name('boilit')
-  .description('A CLI tool for managing and cherry-picking modules from Git repositories')
-  .version(version, '-v, --version', 'output the current version');
-
-program
-  .command('use <repo> [modules...]')
-  .description('Use modules from a repository')
-  .option('--path <path>', 'Path where to initialize the modules', '.')
-  .action(async (repo, modules, options) => {
-    try {
-      const boilit = new BoilIt();
-      await boilit.use(repo, modules, options);
-    } catch (error: unknown) {
-      if (error instanceof OperationCancelledError) {
-        console.log(chalk.yellow('Operation cancelled by user.'));
-        process.exit(0);
-      }
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      console.error(chalk.red(`Error: ${errorMessage}`));
-      process.exit(1);
+export async function handleUse(repo: string, modules: string[], options: UseOptions, deps: Deps = {}): Promise<number> {
+  try {
+    const boilit = (deps.createBoilIt ? deps.createBoilIt() : new BoilIt());
+    await boilit.use(repo, modules, options);
+    return 0;
+  } catch (error: unknown) {
+    if (isOperationCancelled(error)) {
+      console.log(chalk.yellow('Operation cancelled by user.'));
+      return 0;
     }
-  });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error(chalk.red(`Error: ${errorMessage}`));
+    return 1;
+  }
+}
 
-program.parse(process.argv);
+export async function run(argv: string[]) {
+  const program = new Command();
+
+  program
+    .name('boilit')
+    .description('A CLI tool for managing and cherry-picking modules from Git repositories')
+    .version(version, '-v, --version', 'output the current version');
+
+  program
+    .command('use <repo> [modules...]')
+    .description('Use modules from a repository')
+    .option('--path <path>', 'Path where to initialize the modules', '.')
+    .action(async (repo, modules, options) => {
+      const code = await handleUse(repo, modules, options);
+      process.exit(code);
+    });
+
+  await program.parseAsync(argv);
+}
+
+// Only auto-run when executed directly, not when imported for tests
+if (require.main === module) {
+  run(process.argv);
+}
