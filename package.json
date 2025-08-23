@@ -33,7 +33,9 @@
   },
   "homepage": "https://github.com/guibais/boil-it#readme",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
