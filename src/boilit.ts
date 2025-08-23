@@ -3,6 +3,7 @@ import path from "path";
 import toml from "@iarna/toml";
 import { BoilItConfig, BoilItConfigSchema, Module } from "./types";
 import chalk from "chalk";
+import { OperationCancelledError } from "./errors";
 
 export class BoilIt {
   private tempDir = path.join(process.cwd(), ".boilit-temp");
@@ -36,7 +37,11 @@ export class BoilIt {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      spinner.fail(`Failed to apply modules: ${errorMessage}`);
+      if (error instanceof OperationCancelledError) {
+        spinner.info("Operation cancelled by user");
+      } else {
+        spinner.fail(`Failed to apply modules: ${errorMessage}`);
+      }
       throw error;
     } finally {
       await this.cleanup();
@@ -190,7 +195,11 @@ export class BoilIt {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      spinner.fail(`Failed to apply module ${moduleKey}: ${errorMessage}`);
+      if (error instanceof OperationCancelledError) {
+        spinner.info(`Operation cancelled while applying module: ${moduleKey}`);
+      } else {
+        spinner.fail(`Failed to apply module ${moduleKey}: ${errorMessage}`);
+      }
       throw error;
     }
   }
@@ -441,7 +450,7 @@ export class BoilIt {
         await execa("git", ["-C", repoDir, "cherry-pick", "--abort"], {
           stdio: "pipe",
         });
-        throw new Error(`Cherry-pick cancelled by user for ${ref}`);
+        throw new OperationCancelledError(`Cherry-pick cancelled by user for ${ref}`);
       }
 
       try {

@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { BoilIt } from './boilit';
 import { version } from '../package.json';
 import chalk from 'chalk';
+import { OperationCancelledError } from './errors';
 
 const program = new Command();
 
@@ -20,6 +21,10 @@ program
       const boilit = new BoilIt();
       await boilit.use(repo, modules, options);
     } catch (error: unknown) {
+      if (error instanceof OperationCancelledError) {
+        console.log(chalk.yellow('Operation cancelled by user.'));
+        process.exit(0);
+      }
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       console.error(chalk.red(`Error: ${errorMessage}`));
       process.exit(1);
