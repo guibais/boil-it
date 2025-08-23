@@ -68,3 +68,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
+
+      - name: Prepare package.json for GitHub Packages (scoped name)
+        run: |
+          node -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));fs.writeFileSync('package.orig.json', JSON.stringify(pkg));pkg.name='@guibais/boilit';fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish --registry https://npm.pkg.github.com
+
+      - name: Restore original package.json
+        run: mv package.orig.json package.json

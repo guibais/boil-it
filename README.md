@@ -1,5 +1,7 @@
 # BoilIt 🔥
 
+[![npm version](https://img.shields.io/npm/v/boilit.svg)](https://www.npmjs.com/package/boilit)
+
 Decentralized boilerplate and module manager built on Git. BoilIt lets you bring code from a source repository into your project by applying module references (branches/tags/commits) in sequence, resolving dependencies, and guiding you through conflict resolution.
 
 ## Installation
@@ -225,10 +227,19 @@ MIT
 
 ## Release & Publish
 
-- Merges to `main`/`master` trigger the GitHub Actions workflow at `.github/workflows/ci.yml`.
-- The workflow runs tests on Node 18 and 20, then publishes to npm on successful push to `main`/`master`.
-- Required secret: `NPM_TOKEN` with publish access.
-- Package name: `boilit`. Install globally with:
+- Publicação é feita somente quando um Release é publicado no GitHub (`release: published`).
+- O workflow em `.github/workflows/ci.yml` executa testes (Node 18 e 20) e publica:
+  - No npm (registry oficial): pacote `boilit`.
+  - No GitHub Packages: pacote com escopo `@guibais/boilit`.
+- Segredos necessários:
+  - `NPM_TOKEN` com permissão de publish no npm.
+  - `GITHUB_TOKEN` (padrão) para publicar no GitHub Packages.
+- Instalação via npm (recomendado):
   ```bash
   npm install -g boilit
+  ```
+- Instalação via GitHub Packages (opcional):
+  ```bash
+  npm config set @guibais:registry https://npm.pkg.github.com
+  npm install -g @guibais/boilit
   ```
