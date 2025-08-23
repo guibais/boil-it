@@ -118,8 +118,10 @@ export class BoilIt {
       const module = this.config.modules[moduleName];
       if (!module?.refs) continue;
 
+      const remote = module.origin || this.config.default?.origin || "origin";
+
       for (const ref of module.refs) {
-        const isValidRef = await this.checkRefExists(repoDir, ref);
+        const isValidRef = await this.checkRefExists(repoDir, ref, remote);
         if (!isValidRef) {
           invalidRefs.push({ module: moduleName, ref });
         }
@@ -138,11 +140,11 @@ export class BoilIt {
     spinner.succeed("All module references validated");
   }
 
-  private async checkRefExists(repoDir: string, ref: string): Promise<boolean> {
+  private async checkRefExists(repoDir: string, ref: string, remote: string = "origin"): Promise<boolean> {
     const execa = (await import("execa")).default;
     
     try {
-      await execa("git", ["-C", repoDir, "rev-parse", "--verify", `origin/${ref}`], { stdio: "pipe" });
+      await execa("git", ["-C", repoDir, "rev-parse", "--verify", `${remote}/${ref}`], { stdio: "pipe" });
       return true;
     } catch {
       try {
@@ -371,9 +373,11 @@ export class BoilIt {
 
     await execa("git", ["-C", repoDir, "fetch", "--all"], { stdio: "pipe" });
 
+    const remote = module.origin || this.config?.default?.origin || "origin";
+
     for (const ref of module.refs) {
       try {
-        await execa("git", ["-C", repoDir, "fetch", "origin", ref], {
+        await execa("git", ["-C", repoDir, "fetch", remote, ref], {
           stdio: "pipe",
         });
         const { stdout: current } = await execa(
@@ -383,7 +387,7 @@ export class BoilIt {
         );
         const { stdout: base } = await execa(
           "git",
-          ["-C", repoDir, "merge-base", current.trim(), `origin/${ref}`],
+          ["-C", repoDir, "merge-base", current.trim(), `${remote}/${ref}`],
           { stdio: "pipe" }
         );
         const { stdout: revs } = await execa(
@@ -394,7 +398,7 @@ export class BoilIt {
             "rev-list",
             "--no-merges",
             "--reverse",
-            `${base}..origin/${ref}`,
+            `${base}..${remote}/${ref}`,
           ],
           { stdio: "pipe" }
         );
@@ -406,7 +410,7 @@ export class BoilIt {
           continue;
         }
       } catch {}
-      await this.cherryPickWithConflictHandling(repoDir, `origin/${ref}`);
+      await this.cherryPickWithConflictHandling(repoDir, `${remote}/${ref}`);
     }
   }
 
