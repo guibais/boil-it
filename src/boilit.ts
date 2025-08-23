@@ -51,8 +51,11 @@ export class BoilIt {
       throw new Error("Configuration not loaded");
     }
 
+    this.validateRequestedModules(moduleNames);
     const modulesToApply = this.resolveDependencies(moduleNames);
     const repoDir = path.join(this.tempDir, this.repoName);
+
+    await this.validateModuleRefs(modulesToApply, repoDir);
 
     for (const moduleKey of modulesToApply) {
       const module = this.config.modules[moduleKey];
@@ -63,6 +66,87 @@ export class BoilIt {
     }
 
     await this.copyToTarget(repoDir, targetPath);
+  }
+
+  private validateRequestedModules(requestedModules: string[]) {
+    if (!this.config) return;
+    
+    const availableModules = Object.keys(this.config.modules);
+    const invalidModules: string[] = [];
+    
+    for (const moduleName of requestedModules) {
+      if (!availableModules.includes(moduleName)) {
+        invalidModules.push(moduleName);
+      }
+    }
+    
+    if (invalidModules.length > 0) {
+      const suggestion = availableModules.length > 0 
+        ? ` Available modules: ${availableModules.join(", ")}`
+        : " No modules are defined in boilit.toml";
+        
+      throw new Error(
+        `Invalid module${invalidModules.length > 1 ? 's' : ''} requested: ${invalidModules.join(", ")}.` +
+        suggestion
+      );
+    }
+  }
+
+  private async validateModuleRefs(moduleNames: string[], repoDir: string) {
+    if (!this.config) return;
+
+    const execa = (await import("execa")).default;
+    const { default: ora } = await import("ora");
+    
+    const spinner = ora("Validating module references...").start();
+    
+    try {
+      await execa("git", ["-C", repoDir, "fetch", "--all"], { stdio: "pipe" });
+    } catch (error: any) {
+      spinner.fail("Failed to fetch repository references");
+      throw new Error(`Failed to fetch repository references: ${error.message}`);
+    }
+
+    const invalidRefs: Array<{ module: string; ref: string }> = [];
+
+    for (const moduleName of moduleNames) {
+      const module = this.config.modules[moduleName];
+      if (!module?.refs) continue;
+
+      for (const ref of module.refs) {
+        const isValidRef = await this.checkRefExists(repoDir, ref);
+        if (!isValidRef) {
+          invalidRefs.push({ module: moduleName, ref });
+        }
+      }
+    }
+
+    if (invalidRefs.length > 0) {
+      spinner.fail("Invalid references found");
+      const refList = invalidRefs.map(({ module, ref }) => `'${ref}' in module '${module}'`).join(", ");
+      throw new Error(
+        `Invalid reference${invalidRefs.length > 1 ? 's' : ''} found: ${refList}. ` +
+        "These branches/commits/tags do not exist in the repository."
+      );
+    }
+
+    spinner.succeed("All module references validated");
+  }
+
+  private async checkRefExists(repoDir: string, ref: string): Promise<boolean> {
+    const execa = (await import("execa")).default;
+    
+    try {
+      await execa("git", ["-C", repoDir, "rev-parse", "--verify", `origin/${ref}`], { stdio: "pipe" });
+      return true;
+    } catch {
+      try {
+        await execa("git", ["-C", repoDir, "rev-parse", "--verify", ref], { stdio: "pipe" });
+        return true;
+      } catch {
+        return false;
+      }
+    }
   }
 
   private resolveDependencies(moduleNames: string[]): string[] {
@@ -124,8 +208,132 @@ export class BoilIt {
     }
 
     const configContent = await fs.readFile(configPath, "utf-8");
-    const configData = toml.parse(configContent);
-    this.config = BoilItConfigSchema.parse(configData);
+    let configData;
+    
+    try {
+      configData = toml.parse(configContent);
+    } catch (error: any) {
+      throw new Error(`Invalid TOML syntax in boilit.toml: ${error.message}`);
+    }
+
+    try {
+      this.config = BoilItConfigSchema.parse(configData);
+    } catch (error: any) {
+      throw new Error(`Invalid boilit.toml configuration: ${error.message}`);
+    }
+
+    this.validateConfig();
+  }
+
+  private validateConfig() {
+    if (!this.config) return;
+
+    const moduleNames = Object.keys(this.config.modules);
+    const duplicates = this.findDuplicates(moduleNames);
+    
+    if (duplicates.length > 0) {
+      throw new Error(
+        `Duplicate module names found in boilit.toml: ${duplicates.join(", ")}. ` +
+        "Each module must have a unique name."
+      );
+    }
+
+    for (const [moduleName, module] of Object.entries(this.config.modules)) {
+      this.validateModule(moduleName, module, moduleNames);
+    }
+  }
+
+  private validateModule(moduleName: string, module: Module, allModuleNames: string[]) {
+    if (module.dependencies) {
+      for (const dep of module.dependencies) {
+        if (!allModuleNames.includes(dep)) {
+          throw new Error(
+            `Module '${moduleName}' has invalid dependency '${dep}'. ` +
+            `Available modules: ${allModuleNames.join(", ")}`
+          );
+        }
+        
+        if (dep === moduleName) {
+          throw new Error(
+            `Module '${moduleName}' cannot depend on itself. ` +
+            "Self-dependencies are not allowed."
+          );
+        }
+      }
+
+      const circularDep = this.detectCircularDependency(moduleName, module.dependencies, allModuleNames);
+      if (circularDep) {
+        throw new Error(
+          `Circular dependency detected: ${circularDep.join(" → ")} → ${moduleName}. ` +
+          "Dependencies must form a directed acyclic graph."
+        );
+      }
+    }
+
+    if (module.refs && module.refs.length === 0) {
+      throw new Error(
+        `Module '${moduleName}' has empty refs array. ` +
+        "Either remove the refs field or provide at least one reference."
+      );
+    }
+
+    if (module.files && module.files.length === 0) {
+      throw new Error(
+        `Module '${moduleName}' has empty files array. ` +
+        "Either remove the files field or provide at least one file pattern."
+      );
+    }
+
+    if (module.dependencies && module.dependencies.length === 0) {
+      throw new Error(
+        `Module '${moduleName}' has empty dependencies array. ` +
+        "Either remove the dependencies field or provide at least one dependency."
+      );
+    }
+  }
+
+  private findDuplicates(array: string[]): string[] {
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    
+    for (const item of array) {
+      if (seen.has(item)) {
+        duplicates.add(item);
+      }
+      seen.add(item);
+    }
+    
+    return Array.from(duplicates);
+  }
+
+  private detectCircularDependency(
+    moduleName: string, 
+    dependencies: string[], 
+    allModuleNames: string[],
+    visited: Set<string> = new Set(),
+    path: string[] = []
+  ): string[] | null {
+    if (visited.has(moduleName)) {
+      const cycleStart = path.indexOf(moduleName);
+      return cycleStart >= 0 ? path.slice(cycleStart) : path;
+    }
+
+    visited.add(moduleName);
+    path.push(moduleName);
+
+    for (const dep of dependencies) {
+      if (!allModuleNames.includes(dep)) continue;
+      
+      const depModule = this.config?.modules[dep];
+      if (depModule?.dependencies) {
+        const cycle = this.detectCircularDependency(dep, depModule.dependencies, allModuleNames, visited, path);
+        if (cycle) return cycle;
+      }
+    }
+
+    visited.delete(moduleName);
+    path.pop();
+    return null;
   }
 
   private async cloneRepo(repo: string, force = false): Promise<string> {
@@ -184,16 +392,72 @@ export class BoilIt {
         const shas = revs.split("\n").filter(Boolean);
         if (shas.length > 0) {
           for (const sha of shas) {
-            await execa("git", ["-C", repoDir, "cherry-pick", sha], {
-              stdio: "pipe",
-            });
+            await this.cherryPickWithConflictHandling(repoDir, sha);
           }
           continue;
         }
       } catch {}
+      await this.cherryPickWithConflictHandling(repoDir, `origin/${ref}`);
+    }
+  }
+
+  private async cherryPickWithConflictHandling(repoDir: string, ref: string) {
+    const execa = (await import("execa")).default;
+    
+    try {
       await execa("git", ["-C", repoDir, "cherry-pick", ref], {
         stdio: "pipe",
       });
+    } catch (error: any) {
+      if (error.exitCode === 1) {
+        await this.handleMergeConflict(repoDir, ref);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  private async handleMergeConflict(repoDir: string, ref: string) {
+    const inquirer = (await import("inquirer")).default;
+    const execa = (await import("execa")).default;
+    
+    console.log(chalk.yellow(`\n⚠️  Merge conflict detected while cherry-picking ${ref}`));
+    console.log(chalk.cyan("Please resolve the conflicts manually and then choose an option:"));
+    
+    while (true) {
+      const { action } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "action",
+          message: "What would you like to do?",
+          choices: [
+            { name: "Continue (conflicts resolved)", value: "continue" },
+            { name: "Cancel (abort cherry-pick)", value: "cancel" }
+          ]
+        }
+      ]);
+
+      if (action === "cancel") {
+        await execa("git", ["-C", repoDir, "cherry-pick", "--abort"], {
+          stdio: "pipe",
+        });
+        throw new Error(`Cherry-pick cancelled by user for ${ref}`);
+      }
+
+      try {
+        await execa("git", ["-C", repoDir, "cherry-pick", "--continue"], {
+          stdio: "pipe",
+        });
+        console.log(chalk.green(`✔ Cherry-pick continued successfully for ${ref}`));
+        break;
+      } catch (error: any) {
+        if (error.exitCode === 1) {
+          console.log(chalk.red("❌ Conflicts still exist. Please resolve them before continuing."));
+          continue;
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
