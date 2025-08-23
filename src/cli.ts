@@ -29,7 +29,7 @@ export async function run(argv: string[]) {
 
   program
     .name('boilit')
-    .description('A CLI tool for managing and cherry-picking modules from Git repositories')
+    .description('A CLI tool to apply module refs from Git repositories into your project')
     .version(version, '-v, --version', 'output the current version');
 
   program

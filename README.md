@@ -4,16 +4,16 @@ Decentralized boilerplate and module manager built on Git. BoilIt lets you bring
 
 ## Installation
 
+- Global (via npm):
+  ```bash
+  npm install -g boilit
+  ```
+
 - Development (local):
   ```bash
   npm install
   npm run build
   npm link
-  ```
-
-- Global (when published to npm):
-  ```bash
-  npm install -g boil-it
   ```
 
 ## Usage
@@ -157,3 +157,13 @@ npm test
 ## License
 
 MIT
+
+## Release & Publish
+
+- Merges to `main`/`master` trigger the GitHub Actions workflow at `.github/workflows/ci.yml`.
+- The workflow runs tests on Node 18 and 20, then publishes to npm on successful push to `main`/`master`.
+- Required secret: `NPM_TOKEN` with publish access.
+- Package name: `boilit`. Install globally with:
+  ```bash
+  npm install -g boilit
+  ```

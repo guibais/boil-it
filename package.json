@@ -1,8 +1,8 @@
 {
-  "name": "boil-it",
+  "name": "boilit",
   "version": "0.1.0",
-  "description": "A CLI tool for managing and cherry-picking modules from Git repositories",
-  "main": "dist/index.js",
+  "description": "A CLI tool to apply module refs from Git repositories into your project",
+  "main": "dist/cli.js",
   "bin": {
     "boilit": "dist/cli.js"
   },
@@ -24,6 +24,17 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guibais/boil-it.git"
+  },
+  "bugs": {
+    "url": "https://github.com/guibais/boil-it/issues"
+  },
+  "homepage": "https://github.com/guibais/boil-it#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "chalk": "^4.1.2",
