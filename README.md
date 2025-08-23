@@ -42,6 +42,42 @@ boilit use <repo> [modules...] [--path <target>]
   boilit use https://github.com/guibais/boil-test-repo.git auth user --path ./my-project
   ```
 
+### Simple examples
+
+- __Apply everything into the current directory__
+  ```bash
+  boilit use https://github.com/guibais/boil-test-repo.git
+  ```
+
+- __Apply a single module__
+  ```bash
+  boilit use https://github.com/guibais/boil-test-repo.git auth
+  ```
+
+- __Apply multiple modules into a destination folder__
+  ```bash
+  boilit use https://github.com/guibais/boil-test-repo.git user payment --path ./dest
+  ```
+
+- __Use mixed refs (branch, commit, tag) defined in `boilit.toml`__
+  ```toml
+  [modules.api]
+  refs = ["feature/api", "d34db33f", "v1.2.3"]
+  ```
+  ```bash
+  boilit use https://github.com/guibais/boil-test-repo.git api
+  ```
+
+- __Honor file globs__ (e.g., `[default].files` and `ignore` in `boilit.toml`)
+  ```toml
+  [default]
+  files = ["**/*.md"]
+  ignore = ["**/drafts/**"]
+  ```
+  ```bash
+  boilit use https://github.com/guibais/boil-test-repo.git
+  ```
+
 ## Configuration (`boilit.toml`)
 
 In the source repository, create a `boilit.toml` file at the root defining available modules and defaults. Real example (from the example repo below):
