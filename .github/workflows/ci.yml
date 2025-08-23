@@ -2,11 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, '**/*' ]
+    branches: [main, master, "**/*"]
   pull_request:
-    branches: [ main, master, '**/*' ]
-  release:
-    types: [ published ]
+    branches: [main, master, "**/*"]
 
 jobs:
   test:
@@ -24,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
@@ -47,10 +45,6 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: [test]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,8 +53,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm install
@@ -68,22 +62,10 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-      - name: Bump patch version (no git tag)
-        run: npm version patch --no-git-tag-version
+      - name: Bump minor version
+        run: npm version minor --no-git-tag-version
 
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
-
-      - name: Prepare package.json for GitHub Packages (scoped name)
-        run: |
-          node -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));fs.writeFileSync('package.orig.json', JSON.stringify(pkg));pkg.name='@guibais/boilit';fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
-
-      - name: Publish to GitHub Packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm publish --registry https://npm.pkg.github.com
-
-      - name: Restore original package.json
-        run: mv package.orig.json package.json
