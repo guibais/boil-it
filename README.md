@@ -44,31 +44,36 @@ boilit use <repo> [modules...] [--path <target>]
 
 ### Simple examples
 
-- __Apply everything into the current directory__
+- **Apply everything into the current directory**
+
   ```bash
   boilit use https://github.com/guibais/boil-test-repo.git
   ```
 
-- __Apply a single module__
+- **Apply a single module**
+
   ```bash
   boilit use https://github.com/guibais/boil-test-repo.git auth
   ```
 
-- __Apply multiple modules into a destination folder__
+- **Apply multiple modules into a destination folder**
+
   ```bash
   boilit use https://github.com/guibais/boil-test-repo.git user payment --path ./dest
   ```
 
-- __Use mixed refs (branch, commit, tag) defined in `boilit.toml`__
+- **Use mixed refs (branch, commit, tag) defined in `boilit.toml`**
+
   ```toml
   [modules.api]
   refs = ["feature/api", "d34db33f", "v1.2.3"]
   ```
+
   ```bash
   boilit use https://github.com/guibais/boil-test-repo.git api
   ```
 
-- __Honor file globs__ (e.g., `[default].files` and `ignore` in `boilit.toml`)
+- **Honor file globs** (e.g., `[default].files` and `ignore` in `boilit.toml`)
   ```toml
   [default]
   files = ["**/*.md"]
@@ -182,7 +187,7 @@ Try it:
 ```bash
 boilit use https://github.com/guibais/boil-test-repo.git auth user
 boilit use https://github.com/guibais/boil-test-repo.git payment --path ./dest
-boilit use https://github.com/guibais/boil-test-repo.git user2   # conflict flow
+boilit use https://github.com/guibais/boil-test-repo.git user user2   # conflict flow
 ```
 
 Key characteristics:
