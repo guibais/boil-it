@@ -150,30 +150,28 @@ export class BoilIt {
 
   private async prepareRepoForModule(repoDir: string, module: Module) {
     const { execa } = await import('execa');
-    if (!module.commits && !module.branches) return;
+    if (!module.refs || module.refs.length === 0) return;
 
     try {
       await execa('git', ['-C', repoDir, 'fetch', '--unshallow'], { stdio: 'pipe' });
     } catch {}
     await execa('git', ['-C', repoDir, 'fetch', '--all'], { stdio: 'pipe' });
 
-    if (module.branches && module.branches.length > 0) {
-      for (const branch of module.branches) {
-        await execa('git', ['-C', repoDir, 'fetch', 'origin', branch], { stdio: 'pipe' });
+    for (const ref of module.refs) {
+      try {
+        await execa('git', ['-C', repoDir, 'fetch', 'origin', ref], { stdio: 'pipe' });
         const { stdout: current } = await execa('git', ['-C', repoDir, 'rev-parse', 'HEAD'], { stdio: 'pipe' });
-        const { stdout: base } = await execa('git', ['-C', repoDir, 'merge-base', current.trim(), `origin/${branch}`], { stdio: 'pipe' });
-        const { stdout: revs } = await execa('git', ['-C', repoDir, 'rev-list', '--no-merges', '--reverse', `${base}..origin/${branch}`], { stdio: 'pipe' });
+        const { stdout: base } = await execa('git', ['-C', repoDir, 'merge-base', current.trim(), `origin/${ref}`], { stdio: 'pipe' });
+        const { stdout: revs } = await execa('git', ['-C', repoDir, 'rev-list', '--no-merges', '--reverse', `${base}..origin/${ref}`], { stdio: 'pipe' });
         const shas = revs.split('\n').filter(Boolean);
-        for (const sha of shas) {
-          await execa('git', ['-C', repoDir, 'cherry-pick', sha], { stdio: 'pipe' });
+        if (shas.length > 0) {
+          for (const sha of shas) {
+            await execa('git', ['-C', repoDir, 'cherry-pick', sha], { stdio: 'pipe' });
+          }
+          continue;
         }
-      }
-    }
-
-    if (module.commits && module.commits.length > 0) {
-      for (const commit of module.commits) {
-        await execa('git', ['-C', repoDir, 'cherry-pick', commit], { stdio: 'pipe' });
-      }
+      } catch {}
+      await execa('git', ['-C', repoDir, 'cherry-pick', ref], { stdio: 'pipe' });
     }
   }
 

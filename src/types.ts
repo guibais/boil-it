@@ -3,8 +3,7 @@ import { z } from 'zod';
 export const ModuleSchema = z.object({
   description: z.string().optional(),
   origin: z.string().optional(),
-  branches: z.array(z.string()).optional(),
-  commits: z.array(z.string()).optional(),
+  refs: z.array(z.string()).optional(),
   dependencies: z.array(z.string()).optional(),
   path: z.string().optional(),
   files: z.array(z.string()).optional(),

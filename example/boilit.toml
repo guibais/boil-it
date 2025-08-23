@@ -6,24 +6,16 @@ origin = "https://github.com/guibais/boil-test-repo.git"
 
 [modules.auth]
 description = "Authentication module"
-branches = ["auth-branch"]
-path = "modules/auth"
+refs = ["auth-branch"]
 
 [modules.user]
 description = "User module"
-branches = ["user-branch"]
+refs = ["user-branch"]
 dependencies = ["auth"]
-path = "modules/user"
 
 [modules.payment]
 description = "Payment module"
-branches = ["payment-branch"]
+refs = ["payment-branch"]
 dependencies = ["user"]
 path = "custom-folder/payment"
 files = ["modules/*.md"]
-
-[modules.notifications]
-description = "Notification system"
-origin = "https://github.com/your-username/notifications-module.git"
-branches = ["feature/email-digest", "hotfix/push-retry"]
-path = "modules/notifications"
