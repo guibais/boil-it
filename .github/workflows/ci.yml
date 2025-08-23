@@ -64,11 +64,20 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Determine and bump version (Conv. Commits)
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          echo "Commit message: $COMMIT_MSG"
+          BUMP="patch"
+          if echo "$COMMIT_MSG" | grep -Eqi 'BREAKING CHANGE|!:'; then BUMP="major"; fi
+          if echo "$COMMIT_MSG" | grep -Eqi '^feat|\sfeat'; then BUMP="minor"; fi
+          echo "Bumping version: $BUMP"
+          npm version "$BUMP" --no-git-tag-version
+          node -e "console.log('New version:', require('./package.json').version)"
+
       - name: Build
         run: npm run build --if-present
-
-      - name: Bump minor version
-        run: npm version minor --no-git-tag-version
 
       - name: Publish to npm
         env:
