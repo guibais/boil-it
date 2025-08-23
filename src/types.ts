@@ -7,10 +7,13 @@ export const ModuleSchema = z.object({
   dependencies: z.array(z.string()).optional(),
   path: z.string().optional(),
   files: z.array(z.string()).optional(),
+  ignore: z.array(z.string()).optional(),
 });
 
 export const DefaultSchema = z.object({
   origin: z.string(),
+  files: z.array(z.string()).optional(),
+  ignore: z.array(z.string()).optional(),
 });
 
 export const BoilItConfigSchema = z.object({
@@ -21,4 +24,5 @@ export const BoilItConfigSchema = z.object({
 });
 
 export type Module = z.infer<typeof ModuleSchema>;
+export type Default = z.infer<typeof DefaultSchema>;
 export type BoilItConfig = z.infer<typeof BoilItConfigSchema>;

@@ -50,6 +50,11 @@ description = "Example repository with modules"
 
 [default]
 origin = "https://github.com/your-org/your-repo.git" # global default Git remote URL; modules can override with their own 'origin'
+# Optional: restrict what gets copied globally
+# Without 'files', BoilIt copies everything
+files = ["**/*.md"]
+# Optional: exclude patterns (only applied when explicitly set)
+ignore = ["**/drafts/**", "**/skip.md"]
 
 [modules.auth]
 description = "Authentication module"
@@ -66,6 +71,8 @@ refs = ["payment-branch"]
 dependencies = ["user"]
 path = "custom-folder/payment"
 files = ["modules/*.md"]
+# Exclude some files from this module only
+ignore = ["modules/secret.md"]
 
 [modules.user2]
 description = "User2 module with conflict"
@@ -84,7 +91,21 @@ refs = ["external-feature"]
 - `dependencies`: other modules that must be applied first
 - `path`: optional destination path where the module will be placed
 - `files`: file glob(s) to include (e.g., `modules/*.md`)
+- `ignore`: file glob(s) to exclude for this module
 - `origin`: optional Git remote URL for this module (overrides `[default].origin`). If omitted, BoilIt uses `[default].origin` when present, otherwise the source repo URL passed to the CLI.
+
+Additionally, in `[default]` you can define:
+
+- `files`: global include globs applied as a baseline to all modules
+- `ignore`: global exclude globs applied to all copied files
+
+### File selection semantics
+
+- If `[default].files` is provided, those files are included globally (subject to `[default].ignore` if set).
+- If a module defines `files`, they are included into its destination (subject to `[default].ignore` and the module's `ignore` if set). If `path` is set, copies land under that subfolder.
+- Both default-level and module-level `ignore` accept one or more glob patterns (`*`, `**`, etc.).
+- If neither default-level nor any module defines `files`, BoilIt copies everything from the source repo. `[default].ignore` is only applied if explicitly set.
+- The `.git` directory is always skipped.
 
 ## How it works
 

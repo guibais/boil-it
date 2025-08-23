@@ -63,6 +63,10 @@ describe('BoilIt core flows', () => {
     fsExtra.copy.mockResolvedValue(undefined);
     fsExtra.remove.mockResolvedValue(undefined);
 
+    // Ensure copyToTarget finds at least one file to copy
+    fsExtra.readdir.mockResolvedValue(['a.txt']);
+    fsExtra.stat.mockResolvedValue({ isDirectory: () => false } as any);
+
     // execa behavior per command sequence
     execaMock.mockImplementation(async (_cmd: string, args: string[]) => {
       const joined = args.join(' ');
@@ -77,10 +81,62 @@ describe('BoilIt core flows', () => {
       return {};
     });
 
+    const spyCopyToTarget = jest.spyOn(b as any, 'copyToTarget');
     await b.use('https://github.com/u/repo.git', [], { path: 'target' });
     expect(fsExtra.ensureDir).toHaveBeenCalled();
-    expect(fsExtra.copy).toHaveBeenCalled();
+    expect(spyCopyToTarget).toHaveBeenCalled();
+    spyCopyToTarget.mockRestore();
   });
+
+  it('copyToTarget honors default.files/default.ignore and module.files/module.ignore', async () => {
+    const b = new BoilIt();
+    const repoDir = path.join(process.cwd(), '.repo');
+    const target = path.join(process.cwd(), '.out');
+
+    (b as any).config = {
+      default: {
+        files: ['**/*.md'],
+        ignore: ['**/skip.md'],
+      },
+      modules: {
+        M: {
+          files: ['modules/*.js'],
+          ignore: ['modules/ignore.js'],
+          path: 'dst'
+        }
+      }
+    } as any;
+
+    // Directory layout:
+    // /repo: readme.md, skip.md, modules/
+    // /repo/modules: file.js, ignore.js
+    fsExtra.readdir.mockImplementation(async (dir: string) => {
+      if (dir === repoDir) return ['readme.md', 'skip.md', 'modules'];
+      if (dir === path.join(repoDir, 'modules')) return ['file.js', 'ignore.js'];
+      return [];
+    });
+    fsExtra.stat.mockImplementation(async (p: string) => ({
+      isDirectory: () => p === path.join(repoDir, 'modules')
+    }) as any);
+
+    fsExtra.ensureDir.mockResolvedValue(undefined);
+    fsExtra.copy.mockResolvedValue(undefined);
+
+    await (b as any).copyToTarget(repoDir, target, ['M']);
+
+    const copies = fsExtra.copy.mock.calls.map((c: any[]) => ({ src: c[0], dest: c[1] }));
+    const hasReadme = copies.find((c) => c.src.endsWith('readme.md') && c.dest.endsWith(path.join('readme.md')));
+    const hasModulesFile = copies.find((c) => c.src.endsWith(path.join('modules', 'file.js')) && c.dest.endsWith(path.join('dst', 'modules', 'file.js')));
+    const hasSkip = copies.find((c) => c.src.endsWith('skip.md'));
+    const hasIgnoredJs = copies.find((c) => c.src.endsWith(path.join('modules', 'ignore.js')));
+
+    expect(hasReadme).toBeTruthy();
+    expect(hasModulesFile).toBeTruthy();
+    expect(hasSkip).toBeFalsy();
+    expect(hasIgnoredJs).toBeFalsy();
+  });
+
+  
 
   it('use() handles OperationCancelledError with spinner.info', async () => {
     const b = new BoilIt();

@@ -3,6 +3,8 @@ description = "Example repository with modules"
 
 [default]
 origin = "https://github.com/guibais/boil-test-repo.git"
+files = ["**/*.md"]
+ignore = ["**/skip.md"]
 
 [modules.auth]
 description = "Authentication module"
@@ -19,3 +21,4 @@ refs = ["payment-branch"]
 dependencies = ["user"]
 path = "custom-folder/payment"
 files = ["modules/*.md"]
+ignore = ["modules/secret.md"]

@@ -70,7 +70,7 @@ export class BoilIt {
       await this.applyModuleRefs(moduleKey, module, repoDir);
     }
 
-    await this.copyToTarget(repoDir, targetPath);
+    await this.copyToTarget(repoDir, targetPath, modulesToApply);
   }
 
   private validateRequestedModules(requestedModules: string[]) {
@@ -140,12 +140,12 @@ export class BoilIt {
     spinner.succeed("All module references validated");
   }
 
-  private async checkRefExists(repoDir: string, ref: string, originUrl: string): Promise<boolean> {
+  private async checkRefExists(repoDir: string, ref: string, originUrl?: string): Promise<boolean> {
     const execa = (await import("execa")).default;
-    
+    const url = originUrl || this.config?.default?.origin || this.repoUrl;
     try {
       // Fast check using ls-remote against the provided URL
-      await execa("git", ["ls-remote", "--exit-code", originUrl, ref], { stdio: "pipe" });
+      await execa("git", ["ls-remote", "--exit-code", url, ref], { stdio: "pipe" });
       return true;
     } catch {
       try {
@@ -207,9 +207,67 @@ export class BoilIt {
     }
   }
 
-  private async copyToTarget(repoDir: string, targetPath: string) {
+  private async copyToTarget(repoDir: string, targetPath: string, modulesToApply: string[]) {
     await fs.ensureDir(targetPath);
-    await fs.copy(repoDir, targetPath, { overwrite: true });
+
+    const cfg = this.config;
+    const defaultFiles = cfg?.default?.files;
+    const defaultIgnore = cfg?.default?.ignore || [];
+
+    const toCopy: Array<{ src: string; dest: string }> = [];
+    const added = new Set<string>();
+
+    const addCopies = async (
+      includes: string[],
+      ignores: string[],
+      destBase: string
+    ) => {
+      const files = await this.collectFiles(repoDir, includes);
+      const ignoreRegexes = (ignores || []).map((p) => this.globToRegExp(p));
+      for (const abs of files) {
+        const rel = path.relative(repoDir, abs).split(path.sep).join("/");
+        if (ignoreRegexes.some((r) => r.test(rel))) continue;
+        const dest = path.join(destBase, rel);
+        const key = `${abs} -> ${dest}`;
+        if (added.has(key)) continue;
+        added.add(key);
+        toCopy.push({ src: abs, dest });
+      }
+    };
+
+    const anyModuleHasFiles = modulesToApply.some((m) => cfg?.modules[m]?.files && (cfg.modules[m]!.files as any).length > 0);
+
+    if (defaultFiles && defaultFiles.length > 0) {
+      await addCopies(defaultFiles, defaultIgnore || [], targetPath);
+    }
+
+    for (const name of modulesToApply) {
+      const mod = cfg?.modules[name];
+      if (!mod) continue;
+      const includes = mod.files;
+      if (includes && includes.length > 0) {
+        const destBase = mod.path ? path.join(targetPath, mod.path) : targetPath;
+        const ignores = [...(defaultIgnore || []), ...(mod.ignore || [])];
+        await addCopies(includes, ignores, destBase);
+      }
+    }
+
+    if (!defaultFiles && !anyModuleHasFiles) {
+      // No include filters provided: copy everything (only apply default ignores if explicitly set)
+      const all = await this.collectFiles(repoDir, ["**/*", "*"]);
+      const ignoreRegexes = defaultIgnore && defaultIgnore.length > 0 ? defaultIgnore.map((p) => this.globToRegExp(p)) : [];
+      for (const abs of all) {
+        const rel = path.relative(repoDir, abs).split(path.sep).join("/");
+        if (ignoreRegexes.length > 0 && ignoreRegexes.some((r) => r.test(rel))) continue;
+        const dest = path.join(targetPath, rel);
+        toCopy.push({ src: abs, dest });
+      }
+    }
+
+    for (const { src, dest } of toCopy) {
+      await fs.ensureDir(path.dirname(dest));
+      await fs.copy(src, dest, { overwrite: true });
+    }
   }
 
   private async loadConfig() {
@@ -491,6 +549,7 @@ export class BoilIt {
         const full = path.join(dir, entry);
         const stat = await fs.stat(full);
         if (stat.isDirectory()) {
+          if (entry === ".git") continue;
           await walk(full);
         } else {
           const rel = path.relative(root, full).split(path.sep).join("/");
@@ -507,10 +566,16 @@ export class BoilIt {
 
   private globToRegExp(pattern: string): RegExp {
     let p = pattern.replace(/\\/g, "/");
+    // Protect double-star-dir "**/" and double-star "**" with placeholders
+    p = p.replace(/\*\*\//g, "::DS_DIR::");
+    p = p.replace(/\*\*/g, "::DS::");
+    // Escape regex specials except '*' and '/'
     p = p.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    p = p.replace(/\*\*/g, "::DOUBLE_STAR::");
+    // Single star -> not crossing directory boundaries
     p = p.replace(/\*/g, "[^/]*");
-    p = p.replace(/::DOUBLE_STAR::/g, ".*");
+    // Restore placeholders: '**/' may match zero or more directories, '**' any chars
+    p = p.replace(/::DS_DIR::/g, "(?:.*/)?");
+    p = p.replace(/::DS::/g, ".*");
     return new RegExp("^" + p + "$");
   }
 
