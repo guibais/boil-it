@@ -5,6 +5,8 @@ on:
     branches: [ main, master, '**/*' ]
   pull_request:
     branches: [ main, master, '**/*' ]
+  release:
+    types: [ published ]
 
 jobs:
   test:
@@ -42,7 +44,7 @@ jobs:
           if-no-files-found: ignore
 
   publish:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -61,9 +63,6 @@ jobs:
 
       - name: Build
         run: npm run build --if-present
-
-      - name: Bump minor version
-        run: npm version minor --no-git-tag-version
 
       - name: Publish to npm
         env:
