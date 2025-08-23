@@ -64,7 +64,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Determine and bump version (Conv. Commits)
+      - name: Determine and bump version (Conv. Commits, max(registry, local))
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
@@ -72,9 +72,25 @@ jobs:
           BUMP="patch"
           if echo "$COMMIT_MSG" | grep -Eqi 'BREAKING CHANGE|!:'; then BUMP="major"; fi
           if echo "$COMMIT_MSG" | grep -Eqi '^feat|\sfeat'; then BUMP="minor"; fi
-          echo "Bumping version: $BUMP"
-          npm version "$BUMP" --no-git-tag-version
-          node -e "console.log('New version:', require('./package.json').version)"
+          echo "Bump type: $BUMP"
+
+          REG_VER=$(npm view boilit version 2>/dev/null || echo "0.0.0")
+          LOCAL_VER=$(node -p "require('./package.json').version")
+          echo "Registry version: $REG_VER"
+          echo "Local version:    $LOCAL_VER"
+
+          # Decide BASE as the greater of REG_VER and LOCAL_VER
+          if npx -y semver -r ">=$LOCAL_VER" "$REG_VER" >/dev/null 2>&1; then
+            BASE="$REG_VER"
+          else
+            BASE="$LOCAL_VER"
+          fi
+          echo "Base version:     $BASE"
+
+          NEXT=$(npx -y semver "$BASE" -i "$BUMP")
+          echo "Next version:     $NEXT"
+
+          npm version "$NEXT" --no-git-tag-version
 
       - name: Build
         run: npm run build --if-present
