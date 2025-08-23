@@ -52,4 +52,57 @@ describe('CLI handleUse()', () => {
     expect(code).toBe(1);
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('uses default BoilIt when deps.createBoilIt is not provided (success path)', async () => {
+    const { __state } = require('../boilit');
+    __state.impl.mockResolvedValue(undefined);
+    const code = await handleUse('https://x/y.git', [], { path: '.' });
+    expect(code).toBe(0);
+  });
+
+  it('returns 1 on non-Error thrown (unknown error message path)', async () => {
+    const code = await handleUse('https://x/y.git', [], { path: '.' }, { createBoilIt: () => ({ use: () => Promise.reject('nope') } as any) });
+    expect(code).toBe(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('An unknown error occurred');
+  });
+});
+
+describe('CLI run()', () => {
+  let run: any;
+  let exitSpy: jest.SpyInstance;
+  let state: any;
+
+  beforeEach(() => {
+    // get access to BoilIt mock state
+    state = require('../boilit').__state;
+    jest.isolateModules(() => {
+      const mod = require('../cli');
+      run = mod.run;
+    });
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation(((code?: number) => { throw new Error(`exit:${code}`); }) as any);
+  });
+
+  afterEach(() => {
+    exitSpy.mockRestore();
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  it('parses args and exits with code 0 on success', async () => {
+    state.impl.mockResolvedValue(undefined);
+    try {
+      await run(['node', 'cli', 'use', 'https://x/y.git', 'm1', 'm2', '--path', 'tgt']);
+    } catch (e: any) {
+      expect(e.message).toBe('exit:0');
+    }
+  });
+
+  it('exits with code 1 when BoilIt.use rejects with error', async () => {
+    state.impl.mockRejectedValue(new Error('boom'));
+    try {
+      await run(['node', 'cli', 'use', 'https://x/y.git']);
+    } catch (e: any) {
+      expect(e.message).toBe('exit:1');
+    }
+  });
 });
