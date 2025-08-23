@@ -68,6 +68,9 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
+      - name: Bump patch version (no git tag)
+        run: npm version patch --no-git-tag-version
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
