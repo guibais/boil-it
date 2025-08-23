@@ -1,0 +1,14 @@
+name = "test-repo"
+description = "Test repository"
+
+[default]
+origin = "https://github.com/username/test-repo.git"
+
+[modules.test1]
+description = "Test module 1"
+path = "modules/test1"
+
+[modules.test2]
+description = "Test module 2"
+path = "modules/test2"
+dependencies = ["test1"]
