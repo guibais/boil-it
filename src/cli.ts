@@ -15,7 +15,6 @@ program
   .command('use <repo> [modules...]')
   .description('Use modules from a repository')
   .option('--path <path>', 'Path where to initialize the modules', '.')
-  .option('--ref <ref>', 'Git reference (branch, tag, commit)')
   .action(async (repo, modules, options) => {
     try {
       const boilit = new BoilIt();

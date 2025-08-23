@@ -137,7 +137,7 @@ export class BoilIt {
     const targetDir = path.join(this.tempDir, force ? `temp-${Date.now()}` : repoName);
     
     try {
-      const { execa } = await import('execa');
+      const execa = (await import('execa')).default;
       await execa('git', ['clone', '--depth', '1', repo, targetDir], {
         stdio: 'pipe',
       });
@@ -149,7 +149,7 @@ export class BoilIt {
   }
 
   private async prepareRepoForModule(repoDir: string, module: Module) {
-    const { execa } = await import('execa');
+    const execa = (await import('execa')).default;
     if (!module.refs || module.refs.length === 0) return;
 
     try {
