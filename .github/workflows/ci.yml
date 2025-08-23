@@ -62,6 +62,9 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
+      - name: Bump minor version
+        run: npm version minor --no-git-tag-version
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

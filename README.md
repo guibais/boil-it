@@ -5,6 +5,7 @@ Decentralized boilerplate and module manager built on Git. BoilIt lets you bring
 ## Installation
 
 - Global (via npm):
+
   ```bash
   npm install -g boilit
   ```
@@ -31,6 +32,7 @@ boilit use <repo> [modules...] [--path <target>]
 ### Examples
 
 - Apply all modules:
+
   ```bash
   boilit use https://github.com/guibais/boil-test-repo.git
   ```
@@ -62,7 +64,8 @@ refs = ["auth-branch"]
 
 [modules.user]
 description = "User module"
-refs = ["user-branch"]
+refs = ["user-branch", "a1b2c3", "hotfix-tag", "another-branch"]
+# dependecies (optional) means "apply this module only after the dependencies are applied"
 dependencies = ["auth"]
 
 [modules.payment]
@@ -87,7 +90,7 @@ refs = ["external-feature"]
 ### Module options
 
 - `description`: module description (optional)
-- `refs`: array of Git references (branches, tags, or SHAs) applied in sequence (required to apply code)
+- `refs`: array of Git references applied em sequência; você pode misturar múltiplas branches, tags e commits (SHAs)
 - `dependencies`: other modules that must be applied first
 - `path`: optional destination path where the module will be placed
 - `files`: file glob(s) to include (e.g., `modules/*.md`)
@@ -148,10 +151,10 @@ boilit use https://github.com/guibais/boil-test-repo.git user2   # conflict flow
 
 Key characteristics:
 
-- __Decentralized__: any Git repository with `boilit.toml` can serve as a module source.
-- __Git-based__: leverages Git to fetch and apply module refs while preserving history where possible.
-- __Refs pipeline__: `refs` define the order of commits/branches to compose a module.
-- __Dependencies__: modules can depend on other modules; the order is automatically respected.
+- **Decentralized**: any Git repository with `boilit.toml` can serve as a module source.
+- **Git-based**: leverages Git to fetch and apply module refs while preserving history where possible.
+- **Refs pipeline**: `refs` define the order of commits/branches to compose a module.
+- **Dependencies**: modules can depend on other modules; the order is automatically respected.
 
 ## Development
 
