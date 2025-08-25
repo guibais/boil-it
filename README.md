@@ -224,20 +224,6 @@ npm test
 ## License
 
 MIT
-
-## Release & Publish
-
-- Publicação é feita somente quando um Release é publicado no GitHub (`release: published`).
-- O workflow em `.github/workflows/ci.yml` executa testes (Node 18 e 20) e publica:
-  - No npm (registry oficial): pacote `boilit`.
-  - No GitHub Packages: pacote com escopo `@guibais/boilit`.
-- Segredos necessários:
-  - `NPM_TOKEN` com permissão de publish no npm.
-  - `GITHUB_TOKEN` (padrão) para publicar no GitHub Packages.
-- Instalação via npm (recomendado):
-  ```bash
-  npm install -g boilit
-  ```
 - Instalação via GitHub Packages (opcional):
   ```bash
   npm config set @guibais:registry https://npm.pkg.github.com
